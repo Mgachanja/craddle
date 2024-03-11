@@ -8,11 +8,14 @@ const server = http.createServer(app);
 const io=require('socket.io')(server, {
     cors: {
         origin: '*',
-        methods: ['GET', 'POST']
+        methods: ['GET', 'POST'],
+        credentials: true,
+
     }
-});;
+});
 const connectDB = require('./database configuration/databaseConnection');
-const router=require('./routes/signup.js') 
+const router=require('./routes/signup.js'); 
+const messages = require("./routes/messages.js")
 
 //connectDB()
 
@@ -21,24 +24,18 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use('/', router)
 
-io.on('connection', (socket) => {
-    console.log('New connection')
-    socket.on('disconnect', () => {
-        console.log('User has left')
-    })
-    socket.on('message', (message) => {
-       console.log("server",message)
-
-    })
-    socket.broadcast.emit('socket', 'A new user has joined')
-}
-)
-
-server.listen(4000, () => {
-    console.log(`Server listening on 4000`)
-})
-
-
-app.listen(PORT , () => {
-    console.log(`Server listening on ${PORT}`);
-})
+  global.onlineUsers = new Map();
+  io.on("connection", (socket) => {
+    global.chatSocket = socket;
+    socket.on("add-user", (userId) => {
+      onlineUsers.set(userId, socket.id);
+    });
+  
+    socket.on("send-msg", (data) => {
+      const sendUserSocket = onlineUsers.get(data.to);
+      if (sendUserSocket) {
+        socket.to(sendUserSocket).emit("msg-recieve", data.msg);
+      }
+    });
+  });
+server.listen(4000, ()=>{console.log(`Server is running on port ${PORT}`)})
